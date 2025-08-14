@@ -5,10 +5,8 @@ on:
   schedule:
     - cron: '0 0 * * *'
 
-# --- 추가된 부분 시작 ---
 permissions:
   contents: write
-# --- 추가된 부분 끝 ---
 
 jobs:
   scrape:
@@ -34,3 +32,6 @@ jobs:
         with:
           commit_message: "Update daily trend report"
           file_pattern: reports/*.txt
+          # ✅ 버전 충돌 방지를 위해 추가된 옵션
+          # 저장하기 전에 원격 저장소의 최신 변경사항을 먼저 가져와서 합칩니다.
+          pull_strategy: 'rebase'
