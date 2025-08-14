@@ -1,0 +1,36 @@
+name: Generate Daily Trend Report
+
+on:
+  workflow_dispatch: # 수동 실행을 위한 트리거
+  schedule:
+    - cron: '0 0 * * *' # 매일 자정 (UTC)에 실행
+
+jobs:
+  build-and-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install Playwright browsers
+      run: playwright install --with-deps
+
+    - name: Run trend analysis script
+      run: python main.py
+
+    - name: Upload trend report
+      uses: actions/upload-artifact@v4
+      with:
+        name: trend-reports
+        path: results/
