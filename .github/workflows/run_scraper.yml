@@ -1,0 +1,56 @@
+# 파일 경로: .github/workflows/run_scraper.yml
+
+name: Run Daily Trend Scraper
+
+on:
+  # "Actions" 탭에서 수동으로 실행할 수 있도록 허용
+  workflow_dispatch:
+  # 매일 아침 9시(KST)에 자동으로 실행
+  schedule:
+    - cron: '0 0 * * *'
+
+# 동시 실행으로 인한 충돌 방지
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    # 저장소에 쓰기 권한 부여
+    permissions:
+      contents: write
+
+    steps:
+      # 1. 저장소 코드 가져오기
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 파이썬 환경 설정
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. 필요한 모든 라이브러리 설치
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. 파이썬 스크립트 실행
+      - name: Run the scraper script
+        run: python trend_collector.py
+
+      # 5. EndBug의 전문화된 Action을 사용하여 안전하게 커밋 및 푸시
+      # 이것이 stefanzweifel을 대체하는 새로운 로봇입니다.
+      - name: Commit and push the report
+        uses: EndBug/add-and-commit@v9
+        with:
+          # 커밋 메시지
+          message: '📊 Update daily trend report'
+          # 추가할 파일 패턴
+          add: 'reports/*.txt'
+          # 커밋 작성자 정보 (github-actions 봇으로 통일)
+          default_author: github_actions
+          # 가장 중요: force-with-lease로 안전하게 강제 푸시하여 충돌 해결
+          push: '--force-with-lease'
