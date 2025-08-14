@@ -12,33 +12,38 @@ CATEGORIES = {
     '커뮤니티/밈': ['밈', 'ㅋㅋ', '유행어', '챌린지', '커뮤', '논란', '드립', '더쿠', '에펨코리아', '디시인사이드', '속보', '근황']
 }
 
-# 데이터 수집 대상 사이트 정보 (CSS Selector 추가)
+# 데이터 수집 대상 사이트 정보
 SITES = {
     "google_trends": {
-        "url": "https://trends.google.com/trends/trendingsearches/daily?geo=KR&hl=ko",
-        "selector": "div.title a"
+        "type": "api" # Playwright 대신 pytrends 라이브러리 사용
     },
     "naver_news": {
+        "type": "scrape",
         "url": "https://news.naver.com/main/ranking/popularDay.naver",
         "selector": "a.list_title"
     },
     "theqoo_hot": {
+        "type": "scrape",
         "url": "https://theqoo.net/hot",
         "selector": "a.title"
     },
     "fmkorea_hot": {
+        "type": "scrape",
         "url": "https://www.fmkorea.com/best",
         "selector": "h3.title a"
     },
     "dcinside_stellive": {
+        "type": "scrape",
         "url": "https://gall.dcinside.com/mgallery/board/lists/?id=stellive",
         "selector": "td.gall_tit a.ub-word"
     },
     "dcinside_seoulcomic": {
+        "type": "scrape",
         "url": "https://gall.dcinside.com/board/lists/?id=comic_new3",
         "selector": "td.gall_tit a.ub-word"
     },
     "dcinside_zenless": {
+        "type": "scrape",
         "url": "https://gall.dcinside.com/mgallery/board/lists/?id=zenlesszonezero",
         "selector": "td.gall_tit a.ub-word"
     }
@@ -48,9 +53,11 @@ SITES = {
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'
 ]
 
-# 각 작업 사이의 최소/최대 대기 시간 (초) - 봇 탐지 우회
+# 프록시 서버 리스트
+PROXIES = []
+
+# 각 작업 사이의 최소/최대 대기 시간 (초)
 MIN_WAIT = 2
 MAX_WAIT = 5

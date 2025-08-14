@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: '0 0 * * *' # 매일 자정 (UTC)에 실행
 
+concurrency:
+  group: trend-report-group
+  cancel-in-progress: true
+
 jobs:
   build-and-report:
     runs-on: ubuntu-latest
