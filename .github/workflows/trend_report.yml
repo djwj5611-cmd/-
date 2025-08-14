@@ -29,6 +29,9 @@ jobs:
     - name: Run trend analysis script
       run: python main.py
 
+    - name: List files in the workspace
+      run: ls -R
+
     - name: Upload trend report
       uses: actions/upload-artifact@v4
       with:
