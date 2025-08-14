@@ -18,9 +18,11 @@ jobs:
       contents: write
 
     steps:
-      # 2. 저장소의 코드를 가상 머신으로 가져옴
+      # 2. 저장소의 코드를 가상 머신으로 가져옴 (전체 기록 포함)
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ✅ Git의 전체 기록을 가져와 버전 충돌을 근본적으로 방지
 
       # 3. 파이썬 환경 설정
       - name: Set up Python
