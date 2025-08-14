@@ -1,0 +1,47 @@
+# 파일 경로: .github/workflows/run_job.yml
+
+name: Daily Trend Collector Job
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the scraper script
+        run: python trend_collector.py
+
+      - name: Commit and Push Report
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull origin main --rebase
+          git add reports/
+          if ! git diff --staged --quiet; then
+            git commit -m "📊 Update daily trend report"
+            git push origin main
+            echo "✅ 리포트 파일이 성공적으로 저장되었습니다."
+          else
+            echo "📌 변경사항이 없어 커밋하지 않았습니다."
+          fi
