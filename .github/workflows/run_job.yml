@@ -1,0 +1,57 @@
+# 파일 경로: .github/workflows/run_job.yml
+
+name: Daily Trend Collector Job
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 저장소 코드 가져오기
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 파이썬 환경 설정
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. 라이브러리 설치
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. 파이썬 스크립트 실행
+      - name: Run the scraper script
+        run: python trend_collector.py
+
+      # 5. 로봇 직접 제어 (가장 중요)
+      - name: Commit and Push Report
+        run: |
+          # Git 사용자 정보 설정
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          
+          # 원격 저장소의 최신 변경사항을 강제로 가져와서 합침
+          git pull origin main --rebase
+          
+          # 생성된 리포트 파일을 스테이징
+          git add reports/
+          
+          # 변경사항이 있을 경우에만 커밋 및 푸시 실행
+          if ! git diff --staged --quiet; then
+            git commit -m "📊 Update daily trend report"
+            git push origin main
+            echo "✅ 리포트 파일이 성공적으로 저장되었습니다."
+          else
+            echo "📌 변경사항이 없어 커밋하지 않았습니다."
+          fi
