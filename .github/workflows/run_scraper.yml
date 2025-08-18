@@ -1,21 +1,14 @@
-# 파일 경로: .github/workflows/run_job.yml
-
-name: Daily Trend Collector Job
+# .github/workflows/run_scraper.yml
+name: Daily Trend Scraper
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
-
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+    - cron: '0 22 * * *'  # 매일 UTC 22시 (한국 시간 오전 7시)에 실행
+  workflow_dispatch:      # 수동 실행도 가능하도록 설정
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout repository
@@ -26,41 +19,38 @@ jobs:
         with:
           python-version: '3.10'
 
+      # Chrome 브라우저와 호환되는 ChromeDriver를 자동으로 설치 및 PATH에 추가
       - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@latest
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run the trend collector script
-        run: python trend_collector.py
-
-      - name: Run the twitter scraper script
-        id: twitter_scraper # 스텝에 ID 부여
-        env:
-          TWITTER_USER: ${{ secrets.TWITTER_USER }}
-          TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
-          TWITTER_EMAIL: ${{ secrets.TWITTER_EMAIL }}
-        run: python twitter_scraper.py
-
-      - name: Upload screenshot on failure
-        if: steps.twitter_scraper.outcome == 'failure' # twitter_scraper 스텝이 실패했을 때만 실행
+      - name: Run scraper script
+        run: python scraper.py
+      
+      # 실패 시 스크린샷을 아티팩트로 저장 (디버깅용)
+      - name: Upload error screenshots on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: error-screenshot
-          path: login_failed.png
+          name: error-screenshots
+          path: |
+            google_error.png
+            twitter_login_failed.png
           retention-days: 5 # 5일 후 자동 삭제
 
-      - name: Commit and Push Report
+      - name: Commit and push report
         run: |
           git config --global user.name 'github-actions[bot]'
-          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git pull origin main --rebase
-          git add reports/ twitter_reports/
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add reports/
+          # 변경 사항이 있을 때만 커밋
           if ! git diff --staged --quiet; then
-            git commit -m "📊 Update daily reports"
-            git push origin main
-            echo "✅ 리포트 파일이 성공적으로 저장되었습니다."
+            git commit -m "📊 Update daily trend reports"
+            git push
           else
-            echo "📌 변경사항이 없어 커밋하지 않았습니다."
+            echo "No changes to commit."
           fi
