@@ -49,49 +49,54 @@ class TwitterSearchBot:
             return False
 
     def handle_login(self):
-        """GitHub Secrets를 이용한 직접 로그인 처리"""
+        """GitHub Secrets와 WebDriverWait를 이용한 안정적인 로그인 처리"""
         if not all([self.username, self.password]):
             raise ValueError("트위터 아이디 또는 비밀번호가 설정되지 않았습니다. GitHub Secrets를 확인해주세요.")
 
         try:
-            print("트위터 로그인 페이지로 이동합니다.")
-            self.driver.get("https://twitter.com/login")
-
-            # 1. 아이디 입력
-            print("아이디를 입력합니다...")
-            user_input = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="text"]')))
-            user_input.send_keys(self.username)
-            self.driver.find_element(By.XPATH, '//span[text()="Next"]').click()
-            time.sleep(2)
-
-            # 2. 비밀번호 입력
-            print("비밀번호를 입력합니다...")
-            password_input = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="password"]')))
-            password_input.send_keys(self.password)
-            self.driver.find_element(By.CSS_SELECTOR, 'div[data-testid="LoginForm_Login_Button"]').click()
+            print("트위터 로그인 페이지로 이동합니다: https://x.com/login")
+            self.driver.get("https://x.com/login")
             
-            # 로그인 성공 확인 (타임라인 로딩 확인)
-            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="primaryColumn"]')))
-            print("로그인 성공!")
+            # 1. 아이디(username) 입력창이 나타날 때까지 최대 15초 기다림
+            print("아이디 입력창을 기다립니다...")
+            username_input = self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "input[name='text']"))
+            )
+            username_input.send_keys(self.username)
+            print("아이디를 입력했습니다.")
+            
+            # '다음' 버튼 클릭
+            next_button = self.driver.find_element(By.XPATH, "//span[contains(text(), 'Next')]")
+            next_button.click()
+            print("'다음' 버튼을 클릭했습니다.")
+            
+            # 2. 비밀번호(password) 입력창이 나타날 때까지 최대 15초 기다림
+            print("비밀번호 입력창을 기다립니다...")
+            password_input = self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "input[name='password']"))
+            )
+            password_input.send_keys(self.password)
+            print("비밀번호를 입력했습니다.")
+
+            # '로그인' 버튼 클릭
+            login_button = self.driver.find_element(By.XPATH, "//span[contains(text(), 'Log in')]")
+            login_button.click()
+            print("'로그인' 버튼을 클릭했습니다.")
+
+            # 로그인 후 타임라인(Home) 링크가 보일 때까지 대기 (성공 확인용)
+            print("로그인 성공 확인 중...")
+            self.wait.until(
+                EC.presence_of_element_located((By.XPATH, "//a[@data-testid='AppTabBar_Home_Link']"))
+            )
+            print("로그인에 성공했습니다!")
 
         except Exception as e:
-            # 로그인 실패 시 이메일 인증 단계 처리 (선택적)
-            try:
-                if self.email and "challenge" in self.driver.current_url:
-                    print("추가 인증(이메일)이 필요한 것 같습니다.")
-                    email_input = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="text"]')))
-                    email_input.send_keys(self.email)
-                    self.driver.find_element(By.XPATH, '//span[text()="Next"]').click()
-                    
-                    self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="primaryColumn"]')))
-                    print("이메일 인증 후 로그인 성공!")
-                else:
-                    raise e
-            except Exception as final_e:
-                print(f"로그인에 최종 실패했습니다: {final_e}")
-                # 실패 시 스크린샷 저장 (디버깅용)
-                self.driver.save_screenshot("login_failure_screenshot.png")
-                raise Exception("Login failed")
+            print(f"로그인 과정에서 오류가 발생했습니다: {e}")
+            # 실패 시 스크린샷을 찍어두면 디버깅에 매우 유용합니다.
+            screenshot_path = "login_failed.png"
+            self.driver.save_screenshot(screenshot_path)
+            print(f"'{screenshot_path}' 이름으로 실패 화면을 저장했습니다.")
+            raise Exception("Login failed")
 
     def search_keyword(self, keyword):
         """키워드와 'since:' 연산자를 사용해 24시간 내 트윗만 검색"""

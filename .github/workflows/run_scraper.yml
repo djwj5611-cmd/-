@@ -36,11 +36,20 @@ jobs:
         run: python trend_collector.py
 
       - name: Run the twitter scraper script
+        id: twitter_scraper # 스텝에 ID 부여
         env:
           TWITTER_USER: ${{ secrets.TWITTER_USER }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_EMAIL: ${{ secrets.TWITTER_EMAIL }}
         run: python twitter_scraper.py
+
+      - name: Upload screenshot on failure
+        if: steps.twitter_scraper.outcome == 'failure' # twitter_scraper 스텝이 실패했을 때만 실행
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshot
+          path: login_failed.png
+          retention-days: 5 # 5일 후 자동 삭제
 
       - name: Commit and Push Report
         run: |
