@@ -1,5 +1,5 @@
 # .github/workflows/main.yml
-name: 트렌드 리서치 V3
+name: Hybrid Trend Research V3.1
 
 on:
   schedule:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   research:
-    name: Trend Research V3
+    name: Hybrid Trend Research
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,37 +22,32 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Cache auth files
+        uses: actions/cache@v3
+        with:
+          path: auth/
+          key: ${{ runner.os }}-auth-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-auth-
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install playwright-stealth # 명시적 설치
       
-      - name: Install Playwright browsers and dependencies
+      - name: Install Playwright browsers
         run: playwright install --with-deps
 
-      - name: Run Trend Research V3
+      - name: Run Hybrid Scraper
         run: python scraper.py
       
-      - name: Upload error screenshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: error-screenshots
-          path: |
-            ./screenshots/
-            naver_error.png
-            google_error.png
-            twitter_login_failed.png
-          retention-days: 5
-
       - name: Commit and push results
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add reports/
           if ! git diff --staged --quiet; then
-            git commit -m "📊 트렌드 리서치 V3 결과 업데이트"
+            git commit -m "📊 Update Hybrid Trend Report"
             git push
           else
             echo "No changes to commit."

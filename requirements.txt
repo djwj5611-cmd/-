@@ -1,3 +1,5 @@
+playwright
 requests
 beautifulsoup4
-playwright
+pytrends
+gnews
