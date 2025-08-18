@@ -11,7 +11,7 @@ jobs:
     name: 트렌드 리서치
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 저장소에 코드를 쓸 수 있는 권한 부여
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -22,35 +22,33 @@ jobs:
         with:
           python-version: '3.10'
 
-      # Chrome 브라우저와 호환되는 ChromeDriver를 자동으로 설치 및 PATH에 추가
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@latest
-
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      
+      - name: Install Playwright browsers
+        run: playwright install --with-deps
 
       - name: Run scraper script
         run: python scraper.py
       
-      # 실패 시 스크린샷을 아티팩트로 저장 (디버깅용)
       - name: Upload error screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: error-screenshots
           path: |
+            naver_error.png
             google_error.png
             twitter_login_failed.png
-          retention-days: 5 # 5일 후 자동 삭제
+          retention-days: 5
 
       - name: Commit and push report
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add reports/
-          # 변경 사항이 있을 때만 커밋
           if ! git diff --staged --quiet; then
             git commit -m "📊 트렌드 리서치"
             git push
