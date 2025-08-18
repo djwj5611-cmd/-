@@ -27,8 +27,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Install Playwright and browsers with caching
-        uses: microsoft/playwright-github-action@v1
+      - name: Install Playwright browsers and dependencies
+        run: playwright install --with-deps
 
       - name: Run Trend Research V3
         run: python scraper.py
@@ -40,6 +40,9 @@ jobs:
           name: error-screenshots
           path: |
             ./screenshots/
+            naver_error.png
+            google_error.png
+            twitter_login_failed.png
           retention-days: 5
 
       - name: Commit and push results
