@@ -1,5 +1,5 @@
-# .github/workflows/run_scraper.yml
-name: 트위터 리서치
+# .github/workflows/main.yml
+name: 트렌드 리서치 V3
 
 on:
   schedule:
@@ -7,8 +7,8 @@ on:
   workflow_dispatch:      # 수동 실행도 가능하도록 설정
 
 jobs:
-  scrape:
-    name: 트렌드 리서치
+  research:
+    name: Trend Research V3
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,8 +30,8 @@ jobs:
       - name: Install Playwright browsers
         run: playwright install --with-deps
 
-      - name: Run scraper script
-        run: python scraper.py
+      - name: Run Trend Research V3
+        run: python main.py
       
       - name: Upload error screenshots on failure
         if: failure()
@@ -39,18 +39,16 @@ jobs:
         with:
           name: error-screenshots
           path: |
-            naver_error.png
-            google_error.png
-            twitter_login_failed.png
+            ./screenshots/
           retention-days: 5
 
-      - name: Commit and push report
+      - name: Commit and push results
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add reports/
+          git add results/
           if ! git diff --staged --quiet; then
-            git commit -m "📊 트렌드 리서치"
+            git commit -m "📊 트렌드 리서치 V3 결과 업데이트"
             git push
           else
             echo "No changes to commit."
