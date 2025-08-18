@@ -31,7 +31,7 @@ jobs:
         run: playwright install --with-deps
 
       - name: Run Trend Research V3
-        run: python scraper.py # main.py 대신 scraper.py 실행
+        run: python scraper.py
       
       - name: Upload error screenshots on failure
         if: failure()
@@ -46,7 +46,7 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add results/
+          git add reports/ # 'results/' 에서 'reports/' 로 수정
           if ! git diff --staged --quiet; then
             git commit -m "📊 트렌드 리서치 V3 결과 업데이트"
             git push
