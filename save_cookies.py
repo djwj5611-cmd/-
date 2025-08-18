@@ -1,34 +1,21 @@
 # save_cookies.py
 import time
 import pickle
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium_stealth import stealth
+import undetected_chromedriver as uc
 
 def save_cookies():
-    options = webdriver.ChromeOptions()
-    options.add_argument("start-maximized")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
+    options = uc.ChromeOptions()
+    options.add_argument("--start-maximized")
+    # undetected_chromedriver는 자체적으로 회피 옵션을 많이 포함하므로, 기존 옵션 일부는 제거해도 됩니다.
     
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
-    # Selenium Stealth 적용
-    stealth(driver,
-            languages=["ko-KR", "ko"],
-            vendor="Google Inc.",
-            platform="Win32",
-            webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine",
-            fix_hairline=True,
-            )
+    print("봇 탐지 회피 기능이 강화된 브라우저를 시작합니다...")
+    driver = uc.Chrome(options=options)
 
     driver.get("https://x.com/login")
     print("브라우저가 열렸습니다. 5분 안에 직접 로그인하세요.")
     print("이메일 인증, CAPTCHA 등이 뜨면 직접 처리해주세요.")
 
-    time.sleep(300)  # 로그인 완료 대기 시간 5분으로 변경
+    time.sleep(300)  # 로그인 완료 대기 시간 5분
 
     cookies = driver.get_cookies()
     with open("twitter_cookies.pkl", "wb") as f:
