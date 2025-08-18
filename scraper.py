@@ -11,6 +11,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime, timedelta
 
 # ===== 1. 공통 드라이버 생성 (GitHub Actions 호환) =====
 def create_stealth_driver():
@@ -120,37 +121,73 @@ def twitter_cookie_login(driver):
         return False
 
 def collect_twitter_data(driver):
-    try:
-        print("[TWITTER] 트렌드 수집 시작...")
-        driver.get("https://x.com/explore/tabs/for-you")
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//div[@data-testid='trend']")))
-        trends_container = driver.find_elements(By.XPATH, "//div[@data-testid='trend']")
-        keywords = []
-        for trend in trends_container:
-            if 'Promoted' in trend.text:
-                continue
-            keyword_element = trend.find_element(By.XPATH, ".//div/div[2]/span")
-            keyword = keyword_element.text.strip()
-            if keyword:
-                keywords.append(keyword)
-        unique_keywords = list(dict.fromkeys(keywords))
-        print(f"✅ [성공] {len(unique_keywords)}개 수집 완료")
-        return unique_keywords[:10]
-    except Exception as e:
-        print(f"❌ [실패] TWITTER 수집 실패: {e}")
-        return []
+    print("\n[TWITTER] 채용 공고 상세 검색 시작...")
+    base_keywords = ["스텝", "스태프", "직원", "팀원", "팀", "매니저"]
+    action_keywords = ["공고", "구인", "채용", "모집"]
+    search_keywords = [f"{base} {action}" for base in base_keywords for action in action_keywords]
+    
+    all_results = []
+    processed_links = set()
+
+    for keyword in search_keywords:
+        try:
+            print(f"  -> '{keyword}' 검색 중...")
+            since_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            search_url = f"https://x.com/search?q={keyword}%20since%3A{since_date}&src=typed_query&f=live"
+            driver.get(search_url)
+            
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'article[data-testid="tweet"]'))
+            )
+            time.sleep(2)
+
+            for _ in range(5):
+                tweets = driver.find_elements(By.CSS_SELECTOR, 'article[data-testid="tweet"]')
+                for tweet in tweets:
+                    try:
+                        link_element = tweet.find_element(By.CSS_SELECTOR, 'a[href*="/status/"]')
+                        tweet_link = link_element.get_attribute('href')
+
+                        if tweet_link in processed_links:
+                            continue
+                        
+                        text = tweet.find_element(By.CSS_SELECTOR, '[data-testid="tweetText"]').text
+                        post_time = tweet.find_element(By.TAG_NAME, 'time').get_attribute('datetime')
+                        user_info = tweet.find_element(By.CSS_SELECTOR, '[data-testid="User-Name"]').text.split('\n')
+                        username = user_info[0] if user_info else "Unknown"
+
+                        all_results.append({
+                            'keyword': keyword,
+                            'username': username,
+                            'time': post_time,
+                            'text': text,
+                            'link': tweet_link
+                        })
+                        processed_links.add(tweet_link)
+                    except Exception:
+                        continue
+                
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)
+            
+        except Exception as e:
+            print(f"    ❌ '{keyword}' 검색 실패: {e}")
+            continue
+    
+    print(f"✅ [성공] 총 {len(all_results)}개 트윗 수집 완료")
+    return sorted(all_results, key=lambda x: x['time'], reverse=True)
 
 # ===== 3. 메인 실행 로직 =====
 def main():
     driver = create_stealth_driver()
     if driver:
         google_keywords = collect_google_trends(driver)
-        twitter_keywords = []
+        twitter_results = []
         if twitter_cookie_login(driver):
-            twitter_keywords = collect_twitter_data(driver)
+            twitter_results = collect_twitter_data(driver)
         driver.quit()
     else:
-        google_keywords, twitter_keywords = [], []
+        google_keywords, twitter_results = [], []
 
     naver_keywords = collect_naver_trends()
     dcinside_keywords = collect_dcinside_trends()
@@ -164,8 +201,22 @@ def main():
         f.write("■ Google Trends\n" + ("\n".join(f"- {k}" for k in google_keywords) if google_keywords else "데이터 수집 실패") + "\n\n")
         f.write("■ DCInside\n" + ("\n".join(f"- {k}" for k in dcinside_keywords) if dcinside_keywords else "데이터 수집 실패") + "\n\n")
         f.write("■ Theqoo\n" + ("\n".join(f"- {k}" for k in theqoo_keywords) if theqoo_keywords else "데이터 수집 실패") + "\n\n")
-        f.write("■ Twitter(X)\n" + ("\n".join(f"- {k}" for k in twitter_keywords) if twitter_keywords else "데이터 수집 실패 또는 쿠키 파일 없음") + "\n")
-    
+        
+        f.write("---\n\n")
+        f.write(f"=== 트위터 스태프 모집 검색 결과 ({time.strftime('%Y-%m-%d %H:%M:%S')}) ===\n")
+        f.write(f"총 {len(twitter_results)}개 발견\n\n")
+        
+        if twitter_results:
+            for i, result in enumerate(twitter_results, 1):
+                f.write(f"[{i}] 검색 키워드: {result['keyword']}\n")
+                f.write(f"작성자: {result['username']}\n")
+                f.write(f"시간: {result['time']}\n")
+                f.write(f"내용: {result['text']}\n")
+                f.write(f"링크: {result['link']}\n")
+                f.write("---" * 70 + "\n\n")
+        else:
+            f.write("데이터 수집에 실패했거나 새로운 공고가 없습니다.\n")
+
     print(f"\n📊 리포트 저장 완료: {report_path}")
 
 if __name__ == "__main__":
