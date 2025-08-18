@@ -1,5 +1,6 @@
-requests
-beautifulsoup4
-selenium
-webdriver-manager
-selenium-stealth
+selenium==4.22.0
+webdriver-manager==4.0.1
+beautifulsoup4==4.12.3
+requests==2.32.3
+pytrends==5.1.5
+selenium-stealth==1.6.12selenium 

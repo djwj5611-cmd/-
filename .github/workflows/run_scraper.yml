@@ -29,17 +29,24 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run the scraper script
+      - name: Run the trend collector script
         run: python trend_collector.py
+
+      - name: Run the twitter scraper script
+        env:
+          TWITTER_USER: ${{ secrets.TWITTER_USER }}
+          TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
+          TWITTER_EMAIL: ${{ secrets.TWITTER_EMAIL }}
+        run: python twitter_scraper.py
 
       - name: Commit and Push Report
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git pull origin main --rebase
-          git add reports/
+          git add reports/ twitter_reports/
           if ! git diff --staged --quiet; then
-            git commit -m "📊 Update daily trend report"
+            git commit -m "📊 Update daily reports"
             git push origin main
             echo "✅ 리포트 파일이 성공적으로 저장되었습니다."
           else
