@@ -1,15 +1,14 @@
-# scraper.py (Final Stealth Version)
+# scraper.py (Final Native Version)
 import os
 import time
 import requests
 import re
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth_sync
 from datetime import datetime, timedelta
 
-# ===== 데이터 수집 함수들 (Final Stealth Version) =====
-
+# ===== 데이터 수집 함수들 (동일) =====
+# ... (이전과 동일한 수집 함수들) ...
 def collect_naver_trends(page):
     try:
         print("\n[NAVER] 실시간 키워드 수집 시작...")
@@ -82,8 +81,8 @@ def collect_twitter_data(page):
             page.goto(search_url, wait_until='networkidle', timeout=30000)
             page.wait_for_selector('article[data-testid="tweet"]', timeout=15000)
             
-            for _ in range(3): # 스크롤 횟수 줄여 속도 개선
-                page.mouse.wheel(0, 1500) # 인간적인 스크롤
+            for _ in range(3):
+                page.mouse.wheel(0, 1500)
                 time.sleep(1.5)
 
             tweets = page.locator('article[data-testid="tweet"]').all()
@@ -109,28 +108,36 @@ def collect_twitter_data(page):
     print(f"✅ [성공] 총 {len(all_results)}개 트윗 수집 완료")
     return sorted(all_results, key=lambda x: x['time'], reverse=True)
 
-# ===== 메인 실행 로직 =====
+# ===== 메인 실행 로직 (수정) =====
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # 실제 Chrome 헤더와 유사한 정보 사용
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
         
-        # 일반 컨텍스트 (로그인 불필요)
-        page = browser.new_page()
-        stealth_sync(page) # 스텔스 기능 적용
+        browser = p.chromium.launch(
+            headless=True,
+            args=['--use-gl=egl'] # 그래픽 가속 옵션 추가
+        )
+        
+        # 일반 컨텍스트
+        context = browser.new_context(user_agent=user_agent)
+        page = context.new_page()
         naver_keywords = collect_naver_trends(page)
         google_keywords = collect_google_trends(page)
-        page.close()
+        context.close()
 
-        # 트위터용 컨텍스트 (로그인 필요)
+        # 트위터용 컨텍스트
         twitter_results = []
         auth_file = "auth.json"
         if os.path.exists(auth_file):
             try:
-                context = browser.new_context(storage_state=auth_file)
-                page = context.new_page()
-                stealth_sync(page) # 스텔스 기능 적용
-                twitter_results = collect_twitter_data(page)
-                context.close()
+                twitter_context = browser.new_context(
+                    storage_state=auth_file,
+                    user_agent=user_agent
+                )
+                twitter_page = twitter_context.new_page()
+                twitter_results = collect_twitter_data(twitter_page)
+                twitter_context.close()
             except Exception as e:
                 print(f"❌ 트위터 컨텍스트 처리 중 오류: {e}")
         else:
