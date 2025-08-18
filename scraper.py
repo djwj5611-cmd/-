@@ -1,19 +1,19 @@
-# scraper.py
+# scraper.py (Final Stealth Version)
 import os
 import time
-import pickle
 import requests
 import re
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
 from datetime import datetime, timedelta
 
-# ===== 데이터 수집 함수들 (Playwright 버전) =====
+# ===== 데이터 수집 함수들 (Final Stealth Version) =====
 
 def collect_naver_trends(page):
     try:
         print("\n[NAVER] 실시간 키워드 수집 시작...")
-        page.goto("https://signal.bz/", wait_until='domcontentloaded')
+        page.goto("https://signal.bz/", wait_until='networkidle', timeout=30000)
         page.wait_for_selector('div.rank-keyword span.keyword', timeout=15000)
         elements = page.locator('div.rank-keyword span.keyword').all()
         keywords = [el.inner_text() for el in elements if el.inner_text()]
@@ -28,7 +28,7 @@ def collect_naver_trends(page):
 def collect_google_trends(page):
     try:
         print("\n[GOOGLE] 인기 검색어 수집 시작...")
-        page.goto("https://trends.google.com/trends/trendingsearches/daily?geo=KR", wait_until='domcontentloaded')
+        page.goto("https://trends.google.com/trends/trendingsearches/daily?geo=KR", wait_until='networkidle', timeout=30000)
         page.wait_for_selector("div.feed-item-header div.title a", timeout=15000)
         elements = page.locator("div.feed-item-header div.title a").all()
         keywords = [el.inner_text().strip() for el in elements if el.inner_text().strip()]
@@ -42,7 +42,7 @@ def collect_google_trends(page):
 def collect_dcinside_trends():
     try:
         print("\n[DCINSIDE] 실시간 베스트 수집 시작...")
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'}
         res = requests.get("https://gall.dcinside.com/board/lists/?id=hit", headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
         titles = [re.sub(r'\s*\[\d+\]$', '', el.text.strip()) for el in soup.select("tr.ub-content.us-post .gall_tit a:not(.icon_notice)")]
@@ -55,7 +55,7 @@ def collect_dcinside_trends():
 def collect_theqoo_trends():
     try:
         print("\n[THEQOO] HOT 게시물 수집 시작...")
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'}
         res = requests.get("https://theqoo.net/hot", headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
         titles = [el.text.strip() for row in soup.select("table.theqoo_hot_table tr:not(.notice)") if (el := row.select_one('td.title a'))]
@@ -79,27 +79,29 @@ def collect_twitter_data(page):
             print(f"  -> '{keyword}' 검색 중...")
             since_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
             search_url = f"https://x.com/search?q={keyword}%20since%3A{since_date}&src=typed_query&f=live"
-            page.goto(search_url, wait_until='domcontentloaded')
+            page.goto(search_url, wait_until='networkidle', timeout=30000)
             page.wait_for_selector('article[data-testid="tweet"]', timeout=15000)
             
-            for _ in range(5): # 스크롤 5번
-                tweets = page.locator('article[data-testid="tweet"]').all()
-                for tweet in tweets:
-                    try:
-                        tweet_link = tweet.locator('a[href*="/status/"]').first.get_attribute('href')
-                        if tweet_link in processed_links:
-                            continue
-                        
-                        text = tweet.locator('[data-testid="tweetText"]').inner_text()
-                        post_time = tweet.locator('time').get_attribute('datetime')
-                        username = tweet.locator('[data-testid="User-Name"]').inner_text().split('\n')[0]
+            for _ in range(3): # 스크롤 횟수 줄여 속도 개선
+                page.mouse.wheel(0, 1500) # 인간적인 스크롤
+                time.sleep(1.5)
 
-                        all_results.append({'keyword': keyword, 'username': username, 'time': post_time, 'text': text, 'link': tweet_link})
-                        processed_links.add(tweet_link)
-                    except Exception:
+            tweets = page.locator('article[data-testid="tweet"]').all()
+            for tweet in tweets:
+                try:
+                    tweet_link_element = tweet.locator('a[href*="/status/"]').first
+                    tweet_link = tweet_link_element.get_attribute('href')
+                    if tweet_link in processed_links:
                         continue
-                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                time.sleep(1)
+                    
+                    text = tweet.locator('[data-testid="tweetText"]').inner_text()
+                    post_time = tweet.locator('time').get_attribute('datetime')
+                    username = tweet.locator('[data-testid="User-Name"]').inner_text().split('\n')[0]
+
+                    all_results.append({'keyword': keyword, 'username': username, 'time': post_time, 'text': text, 'link': f"https://x.com{tweet_link}"})
+                    processed_links.add(tweet_link)
+                except Exception:
+                    continue
         except Exception as e:
             print(f"    ❌ '{keyword}' 검색 실패: {e}")
             continue
@@ -112,31 +114,27 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         
-        try:
-            auth_file = "auth.json"
-            if not os.path.exists(auth_file):
-                print("❌ auth.json 파일이 없어 트위터 수집을 건너뜁니다.")
-                twitter_results = []
-                # auth.json이 없어도 다른 사이트는 계속 수집하도록 컨텍스트 생성
-                context = browser.new_context()
-            else:
+        # 일반 컨텍스트 (로그인 불필요)
+        page = browser.new_page()
+        stealth_sync(page) # 스텔스 기능 적용
+        naver_keywords = collect_naver_trends(page)
+        google_keywords = collect_google_trends(page)
+        page.close()
+
+        # 트위터용 컨텍스트 (로그인 필요)
+        twitter_results = []
+        auth_file = "auth.json"
+        if os.path.exists(auth_file):
+            try:
                 context = browser.new_context(storage_state=auth_file)
-
-            page = context.new_page()
-            
-            # 트위터 수집 (로그인 상태가 유효할 경우)
-            if os.path.exists(auth_file):
+                page = context.new_page()
+                stealth_sync(page) # 스텔스 기능 적용
                 twitter_results = collect_twitter_data(page)
-            
-            # 일반 트렌드 수집
-            naver_keywords = collect_naver_trends(page)
-            google_keywords = collect_google_trends(page)
-            
-            context.close()
-
-        except Exception as e:
-            print(f"❌ Playwright 실행 중 오류: {e}")
-            naver_keywords, google_keywords, twitter_results = [], [], []
+                context.close()
+            except Exception as e:
+                print(f"❌ 트위터 컨텍스트 처리 중 오류: {e}")
+        else:
+            print("❌ auth.json 파일이 없어 트위터 수집을 건너뜁니다.")
         
         browser.close()
 
