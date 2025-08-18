@@ -39,7 +39,7 @@ class TwitterSearchBot:
             options.add_argument('--log-level=3')
             options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 
-            service = Service(ChromeDriverManager().install())
+            service = Service(executable_path=ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
             self.wait = WebDriverWait(self.driver, 15) # 대기 시간 증가
             
