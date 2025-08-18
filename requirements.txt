@@ -1,6 +1,6 @@
 requests==2.32.3
 beautifulsoup4==4.12.3
-selenium-stealth==1.6.12
+selenium-stealth==1.0.6
 selenium==4.22.0
 webdriver-manager==4.0.1
 pytrends==5.1.5
