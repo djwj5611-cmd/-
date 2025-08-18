@@ -44,13 +44,13 @@ def collect_naver_trends():
     try:
         print("\n[NAVER] 실시간 키워드 수집 시작...")
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        # 시그널 실시간 검색어 페이지 사용 (네이버 메인 변경 대응)
-        res = requests.get("https://signal.bz/news", headers=headers, timeout=10)
+        res = requests.get("https://signal.bz/", headers=headers, timeout=10) # 메인 페이지 사용
         soup = BeautifulSoup(res.text, "html.parser")
-        # CSS 선택자 변경
-        keywords = [el.text.strip() for el in soup.select("div.rank-text p.rank-title")]
-        print(f"✅ [성공] {len(keywords)}개 수집 완료")
-        return keywords[:10]
+        # 사이트 내 여러 랭킹 키워드를 모두 대상으로 하여 더 안정적으로 수집
+        keywords = [el.get_text(strip=True) for el in soup.select('.rank-keyword .keyword')]
+        unique_keywords = list(dict.fromkeys(keywords)) # 중복 제거
+        print(f"✅ [성공] {len(unique_keywords)}개 수집 완료")
+        return unique_keywords[:10]
     except Exception as e:
         print(f"❌ [실패] NAVER 수집 실패: {e}")
         return []
@@ -60,10 +60,11 @@ def collect_google_trends(driver):
     try:
         print("\n[GOOGLE] 인기 검색어 수집 시작...")
         driver.get("https://trends.google.com/trends/trendingsearches/daily?geo=KR")
-        # 명시적 대기로 안정성 향상
-        elements = WebDriverWait(driver, 20).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.feed-item-header > div.title > a"))
+        # 리스트 전체를 감싸는 컨테이너가 로드될 때까지 대기
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.feed-list-wrapper"))
         )
+        elements = driver.find_elements(By.CSS_SELECTOR, "div.feed-item-header div.title a")
         keywords = [el.text.strip() for el in elements if el.text.strip()]
         print(f"✅ [성공] {len(keywords)}개 수집 완료")
         return keywords[:10]
@@ -96,13 +97,14 @@ def collect_theqoo_trends():
         url = "https://theqoo.net/hot"
         res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
-        # a 태그 안의 텍스트만 가져오도록 수정
-        titles = [el.text.strip() for el in soup.select("table.theqoo_hot_table td.title a")]
+        # 클래스 이름에 의존하지 않고, 제목 셀 내부의 링크를 직접 선택
+        titles = [el.text.strip() for el in soup.select('td.title a') if '[공지]' not in el.text]
         print(f"✅ [성공] {len(titles)}개 수집 완료")
         return titles[:20] # 더쿠는 HOT 게시물이 많으므로 20개 수집
     except Exception as e:
         print(f"❌ [실패] THEQOO 수집 실패: {e}")
         return []
+
 
 # Twitter (쿠키 로그인 및 데이터 수집)
 def twitter_cookie_login(driver):
