@@ -23,16 +23,14 @@ def kill_chrome_processes():
 def setup_authentication():
     AUTH_FILE = "auth/auth_state.json"
     username = getpass.getuser()
-    user_data_dir = f"C:\Users\{username}\AppData\Local\Google\Chrome\User Data"
+    # 문자열을 Raw String (r"...")으로 변경하여 백슬래시 문제를 해결합니다.
+    user_data_dir = rf"C:\Users\{username}\AppData\Local\Google\Chrome\User Data"
     
-    # Chrome 브라우저의 실행 파일 경로를 직접 지정합니다.
-    executable_path = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+    executable_path = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
     if not os.path.exists(executable_path):
-        # 32비트 Windows 또는 다른 경로에 설치된 경우를 대비한 예비 경로
-        executable_path = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        executable_path = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
         if not os.path.exists(executable_path):
             print(f"❌ 정식 Chrome 브라우저를 찾을 수 없습니다. 경로: {executable_path}")
-            print("Chrome이 다른 경로에 설치된 경우, 스크립트의 'executable_path'를 수정해주세요.")
             return
 
     if not os.path.exists(user_data_dir):
@@ -46,7 +44,7 @@ def setup_authentication():
         context = p.chromium.launch_persistent_context(
             user_data_dir,
             headless=False,
-            executable_path=executable_path # 경로를 직접 지정
+            executable_path=executable_path
         )
         page = context.new_page()
 
