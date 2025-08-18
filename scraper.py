@@ -1,90 +1,163 @@
-# scraper.py (Hybrid Final Version)
+# scraper.py (Final Stable Version)
 import os
 import time
-import json
+import requests
+import re
+from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-from pytrends.request import TrendReq
-from gnews import GNews
+from datetime import datetime, timedelta
 
-# ===== 인간적인 행동 패턴 클래스 =====
-class HumanLike:
-    @staticmethod
-    async def human_type(page, selector, text):
-        await page.click(selector)
-        for char in text:
-            await page.keyboard.type(char)
-            await page.wait_for_timeout(float(f"0.{str(time.time())[-3:]}") * 0.4 + 0.1)
-
-    @staticmethod
-    async def natural_scroll(page):
-        for _ in range(3):
-            await page.mouse.wheel(0, 1500)
-            await page.wait_for_timeout(float(f"0.{str(time.time())[-3:]}") * 2 + 1)
-
-# ===== 준(準) API 수집 함수들 =====
-def collect_google_trends_api():
+# ===== 데이터 수집 함수들 =====
+def collect_naver_trends(page):
     try:
-        print("\n[Google Trends API] 데이터 수집 시작...")
-        pytrends = TrendReq(hl='ko-KR', tz=540)
-        trending = pytrends.trending_searches(pn='south_korea')
-        keywords = trending[0].tolist()
-        print(f"✅ [성공] {len(keywords)}개 수집 완료")
-        return keywords
+        print("\n[NAVER] 수집 시작...")
+        page.goto("https://signal.bz/", wait_until='domcontentloaded', timeout=30000)
+        page.wait_for_selector('div.rank-keyword span.keyword', timeout=15000)
+        elements = page.locator('div.rank-keyword span.keyword').all()
+        keywords = list(dict.fromkeys([el.inner_text() for el in elements if el.inner_text()]))
+        print(f"✅ [성공] {len(keywords)}개 수집")
+        return keywords[:10]
     except Exception as e:
-        print(f"❌ [실패] Google Trends API 수집 실패: {e}")
+        print(f"❌ [실패] NAVER: {e}")
+        page.screenshot(path="screenshots/naver_error.png")
         return []
 
-def collect_news_api(keyword):
+def collect_google_trends(page):
     try:
-        print(f"\n[News API] '{keyword}' 관련 뉴스 수집 시작...")
-        gnews = GNews(language='ko', country='KR', period='1d')
-        articles = gnews.get_news(keyword)
-        results = [{"title": a['title'], "url": a['url']} for a in articles[:5]]
-        print(f"✅ [성공] {len(results)}개 뉴스 수집 완료")
-        return results
+        print("\n[GOOGLE] 수집 시작...")
+        page.goto("https://trends.google.com/trends/trendingsearches/daily?geo=KR", wait_until='domcontentloaded', timeout=30000)
+        page.wait_for_selector("div.feed-item-header div.title a", timeout=15000)
+        elements = page.locator("div.feed-item-header div.title a").all()
+        keywords = [el.inner_text().strip() for el in elements if el.inner_text().strip()]
+        print(f"✅ [성공] {len(keywords)}개 수집")
+        return keywords[:10]
     except Exception as e:
-        print(f"❌ [실패] News API 수집 실패: {e}")
+        print(f"❌ [실패] GOOGLE: {e}")
+        page.screenshot(path="screenshots/google_error.png")
         return []
 
-# ===== Playwright 스크래핑 함수들 =====
-def collect_twitter_data(page, keyword):
-    # ... (이전의 상세 검색 로직과 유사하게 구현) ...
-    return [{"title": f"'{keyword}'에 대한 트윗 1"}, {"title": f"'{keyword}'에 대한 트윗 2"}]
+def collect_dcinside_trends():
+    try:
+        print("\n[DCINSIDE] 수집 시작...")
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'}
+        res = requests.get("https://gall.dcinside.com/board/lists/?id=hit", headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+        titles = [re.sub(r'\s*\[\d+\]$', '', el.text.strip()) for el in soup.select("tr.ub-content.us-post .gall_tit a:not(.icon_notice)")]
+        print(f"✅ [성공] {len(titles)}개 수집")
+        return titles[:10]
+    except Exception as e:
+        print(f"❌ [실패] DCINSIDE: {e}")
+        return []
+
+def collect_theqoo_trends():
+    try:
+        print("\n[THEQOO] 수집 시작...")
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'}
+        res = requests.get("https://theqoo.net/hot", headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+        titles = [el.text.strip() for row in soup.select("table.theqoo_hot_table tr:not(.notice)") if (el := row.select_one('td.title a'))]
+        print(f"✅ [성공] {len(titles)}개 수집")
+        return titles[:20]
+    except Exception as e:
+        print(f"❌ [실패] THEQOO: {e}")
+        return []
+
+def collect_twitter_data(page):
+    print("\n[TWITTER] 채용 공고 검색 시작...")
+    base_keywords = ["스텝", "스태프", "직원", "팀원", "팀", "매니저"]
+    action_keywords = ["공고", "구인", "채용", "모집"]
+    search_keywords = [f"{base} {action}" for base in base_keywords for action in action_keywords]
+    all_results = []
+    processed_links = set()
+
+    for keyword in search_keywords:
+        try:
+            print(f"  -> '{keyword}' 검색...")
+            since_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            search_url = f"https://x.com/search?q={keyword}%20since%3A{since_date}&src=typed_query&f=live"
+            page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+            page.wait_for_selector('article[data-testid="tweet"]', timeout=15000)
+            
+            for _ in range(3):
+                page.mouse.wheel(0, 1500)
+                time.sleep(1.5)
+
+            tweets = page.locator('article[data-testid="tweet"]').all()
+            for tweet in tweets:
+                try:
+                    link_element = tweet.locator('a[href*="/status/"]').first
+                    tweet_link = link_element.get_attribute('href')
+                    if tweet_link in processed_links: continue
+                    
+                    text = tweet.locator('[data-testid="tweetText"]').inner_text()
+                    post_time = tweet.locator('time').get_attribute('datetime')
+                    username = tweet.locator('[data-testid="User-Name"]').inner_text().split('\n')[0]
+
+                    all_results.append({'keyword': keyword, 'username': username, 'time': post_time, 'text': text, 'link': f"https://x.com{tweet_link}"})
+                    processed_links.add(tweet_link)
+                except Exception: continue
+        except Exception as e:
+            print(f"    ❌ '{keyword}' 검색 실패: {e}")
+            continue
+    
+    print(f"✅ [성공] 총 {len(all_results)}개 트윗 수집")
+    return sorted(all_results, key=lambda x: x['time'], reverse=True)
 
 # ===== 메인 실행 로직 =====
 def main():
-    # 1. 준 API 방식으로 키워드 및 뉴스 수집
-    google_trends = collect_google_trends_api()
-    main_keyword = google_trends[0] if google_trends else "대한민국"
-    news_results = collect_news_api(main_keyword)
-
-    # 2. Playwright로 로그인 기반 사이트 수집
-    twitter_results = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        auth_file = "auth/twitter_auth.json"
+        browser = p.chromium.launch(headless=True, args=['--use-gl=egl'])
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+        
+        # Playwright 기반 수집
+        page = browser.new_page(user_agent=user_agent)
+        naver_keywords = collect_naver_trends(page)
+        google_keywords = collect_google_trends(page)
+        page.close()
+
+        # 트위터 수집
+        twitter_results = []
+        auth_file = "auth/auth_state.json"
         if os.path.exists(auth_file):
-            context = browser.new_context(storage_state=auth_file)
-            page = context.new_page()
-            twitter_results = collect_twitter_data(page, main_keyword)
-            context.close()
+            try:
+                context = browser.new_context(storage_state=auth_file, user_agent=user_agent)
+                page = context.new_page()
+                twitter_results = collect_twitter_data(page)
+                context.close()
+            except Exception as e:
+                print(f"❌ 트위터 컨텍스트 처리 중 오류: {e}")
         else:
-            print("❌ twitter_auth.json 파일이 없어 트위터 수집을 건너뜁니다.")
+            print("❌ auth.json 파일이 없어 트위터 수집을 건너뜁니다.")
+        
         browser.close()
 
-    # 3. 최종 리포트 생성
+    # requests 기반 수집
+    dcinside_keywords = collect_dcinside_trends()
+    theqoo_keywords = collect_theqoo_trends()
+
+    # 리포트 생성
     os.makedirs("reports", exist_ok=True)
-    report_path = f"reports/Hybrid_Trend_Report_{{time.strftime('%Y-%m-%d')}}.json"
-    final_report = {
-        "update_time": datetime.now().isoformat(),
-        "google_trends": google_trends,
-        "related_news": {main_keyword: news_results},
-        "twitter_buzz": {main_keyword: twitter_results}
-    }
+    report_path = f"reports/Trend_Report_{{time.strftime('%Y-%m-%d_%H%M%S')}}.txt"
     with open(report_path, "w", encoding="utf-8") as f:
-        json.dump(final_report, f, ensure_ascii=False, indent=2)
-    
-    print(f"\n📊 하이브리드 리포트 저장 완료: {report_path}")
+        f.write(f"=== Trend Report ({time.strftime('%Y-%m-%d %H%M%S')}) ===\n\n")
+        f.write("■ NAVER\n" + ("\n".join(f"- {k}" for k in naver_keywords) if naver_keywords else "데이터 수집 실패") + "\n\n")
+        f.write("■ Google Trends\n" + ("\n".join(f"- {k}" for k in google_keywords) if google_keywords else "데이터 수집 실패") + "\n\n")
+        f.write("■ DCInside\n" + ("\n".join(f"- {k}" for k in dcinside_keywords) if dcinside_keywords else "데이터 수집 실패") + "\n\n")
+        f.write("■ Theqoo\n" + ("\n".join(f"- {k}" for k in theqoo_keywords) if theqoo_keywords else "데이터 수집 실패") + "\n\n")
+        f.write("---\n\n")
+        f.write(f"=== 트위터 스태프 모집 검색 결과 ({time.strftime('%Y-%m-%d %H%M%S')}) ===\n")
+        f.write(f"총 {len(twitter_results)}개 발견\n\n")
+        if twitter_results:
+            for i, result in enumerate(twitter_results, 1):
+                f.write(f"[{i}] 검색 키워드: {result['keyword']}\n"
+                        f"작성자: {result['username']}\n"
+                        f"시간: {result['time']}\n"
+                        f"내용: {result['text']}\n"
+                        f"링크: {result['link']}\n"
+                        f"{'-' * 70}\n\n")
+        else:
+            f.write("데이터 수집에 실패했거나 새로운 공고가 없습니다.\n")
+    print(f"\n📊 리포트 저장 완료: {report_path}")
 
 if __name__ == "__main__":
     main()
