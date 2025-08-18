@@ -1,5 +1,5 @@
 # .github/workflows/run_scraper.yml
-name: Daily Trend Scraper
+name: 트위터 리서치
 
 on:
   schedule:
