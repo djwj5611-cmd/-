@@ -1,43 +1,57 @@
-name: Generate Daily Trend Report
+# .github/workflows/main.yml
+name: Daily Trend Scraper
 
 on:
-  workflow_dispatch: # 수동 실행을 위한 트리거
   schedule:
-    - cron: '0 0 * * *' # 매일 자정 (UTC)에 실행
-
-concurrency:
-  group: trend-report-group
-  cancel-in-progress: true
+    - cron: '0 22 * * *'  # 매일 UTC 22시 (한국 시간 오전 7시)에 실행
+  workflow_dispatch:      # 수동 실행도 가능하도록 설정
 
 jobs:
-  build-and-report:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      # Chrome 브라우저와 호환되는 ChromeDriver를 자동으로 설치 및 PATH에 추가
+      # 이 액션이 playwright, chromedriver 수동 설치를 모두 대체합니다.
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@latest
 
-    - name: Install Playwright browsers
-      run: playwright install --with-deps
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Run trend analysis script
-      run: python main.py
+      - name: Run scraper script
+        run: python scraper.py
+      
+      # 실패 시 스크린샷을 아티팩트로 저장 (디버깅용)
+      - name: Upload error screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots
+          path: |
+            google_error.png
+            twitter_login_failed.png
+          retention-days: 5
 
-    - name: List files in the workspace
-      run: ls -R
-
-    - name: Upload trend report
-      uses: actions/upload-artifact@v4
-      with:
-        name: trend-reports
-        path: results/
+      - name: Commit and push report
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add reports/
+          # 변경 사항이 있을 때만 커밋
+          if ! git diff --staged --quiet; then
+            git commit -m " Update daily trend reports"
+            git push
+          else
+            echo "No changes to commit."
+          fi
