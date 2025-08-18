@@ -10,6 +10,8 @@ jobs:
   scrape:
     name: 트렌드 리서치
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 저장소에 코드를 쓸 수 있는 권한 부여
 
     steps:
       - name: Checkout repository
