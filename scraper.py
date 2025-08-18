@@ -35,25 +35,30 @@ def create_stealth_driver():
         return None
 
 # ===== 2. 데이터 수집 함수들 (개선 버전) =====
-def collect_naver_trends():
+def collect_naver_trends(driver):
     try:
         print("\n[NAVER] 실시간 키워드 수집 시작...")
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        res = requests.get("https://signal.bz/", headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
-        keywords = [el.get_text(strip=True) for el in soup.select('div.rank-keyword span.keyword')]
+        driver.get("https://signal.bz/")
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.rank-keyword"))
+        )
+        elements = driver.find_elements(By.CSS_SELECTOR, 'div.rank-keyword span.keyword')
+        keywords = [el.get_text(strip=True) for el in elements if el.get_text(strip=True)]
         unique_keywords = list(dict.fromkeys(keywords))
         print(f"✅ [성공] {len(unique_keywords)}개 수집 완료")
         return unique_keywords[:10]
     except Exception as e:
         print(f"❌ [실패] NAVER 수집 실패: {e}")
+        driver.save_screenshot("naver_error.png")
         return []
 
 def collect_google_trends(driver):
     try:
         print("\n[GOOGLE] 인기 검색어 수집 시작...")
         driver.get("https://trends.google.com/trends/trendingsearches/daily?geo=KR")
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.feed-list-wrapper")))
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.feed-item-header div.title a"))
+        )
         elements = driver.find_elements(By.CSS_SELECTOR, "div.feed-item-header div.title a")
         keywords = [el.text.strip() for el in elements if el.text.strip()]
         print(f"✅ [성공] {len(keywords)}개 수집 완료")
@@ -181,15 +186,15 @@ def collect_twitter_data(driver):
 def main():
     driver = create_stealth_driver()
     if driver:
+        naver_keywords = collect_naver_trends(driver)
         google_keywords = collect_google_trends(driver)
         twitter_results = []
         if twitter_cookie_login(driver):
             twitter_results = collect_twitter_data(driver)
         driver.quit()
     else:
-        google_keywords, twitter_results = [], []
+        naver_keywords, google_keywords, twitter_results = [], [], []
 
-    naver_keywords = collect_naver_trends()
     dcinside_keywords = collect_dcinside_trends()
     theqoo_keywords = collect_theqoo_trends()
 
