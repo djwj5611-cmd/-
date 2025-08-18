@@ -1,47 +1,70 @@
 # setup_auth.py
 import time
-from playwright.sync_api import sync_playwright
 import os
 import getpass
+import subprocess
+from playwright.sync_api import sync_playwright
+
+def kill_chrome_processes():
+    """기존에 실행 중인 모든 Chrome 프로세스를 강제 종료합니다."""
+    try:
+        print("[알림] 기존 Chrome 프로세스를 모두 종료합니다...")
+        subprocess.run(['taskkill', '/F', '/IM', 'chrome.exe'], check=True, capture_output=True, text=True)
+        print("[성공] Chrome 프로세스 종료 완료.")
+        time.sleep(2)
+    except subprocess.CalledProcessError as e:
+        if "프로세스를 찾을 수 없습니다" in e.stderr:
+            print("[정보] 실행 중인 Chrome 프로세스가 없습니다.")
+        else:
+            print(f"[경고] Chrome 프로세스 종료 중 오류 발생: {e.stderr}")
+    except FileNotFoundError:
+        print("[경고] taskkill 명령어를 찾을 수 없습니다. 수동으로 Chrome을 종료해주세요.")
 
 def setup_authentication():
     AUTH_FILE = "auth/auth_state.json"
-    # 현재 로그인된 Windows 사용자 이름을 가져와 경로를 완성합니다.
     username = getpass.getuser()
-    user_data_dir = f"C:\\Users\\{username}\\AppData\\Local\\Google\\Chrome\\User Data"
+    user_data_dir = f"C:\Users\{username}\AppData\Local\Google\Chrome\User Data"
+    
+    # Chrome 브라우저의 실행 파일 경로를 직접 지정합니다.
+    executable_path = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+    if not os.path.exists(executable_path):
+        # 32비트 Windows 또는 다른 경로에 설치된 경우를 대비한 예비 경로
+        executable_path = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        if not os.path.exists(executable_path):
+            print(f"❌ 정식 Chrome 브라우저를 찾을 수 없습니다. 경로: {executable_path}")
+            print("Chrome이 다른 경로에 설치된 경우, 스크립트의 'executable_path'를 수정해주세요.")
+            return
 
     if not os.path.exists(user_data_dir):
         print(f"❌ Chrome 사용자 프로필 경로를 찾을 수 없습니다: {user_data_dir}")
-        print("Chrome이 기본 경로에 설치되었는지 확인해주세요.")
         return
 
+    kill_chrome_processes()
+
     with sync_playwright() as p:
-        # 사용자님의 실제 Chrome 프로필을 사용하여 브라우저 컨텍스트를 실행합니다.
+        print(f"[알림] 다음 경로의 Chrome 브라우저를 실행합니다: {executable_path}")
         context = p.chromium.launch_persistent_context(
             user_data_dir,
             headless=False,
-            # channel="chrome" # 로컬에 설치된 실제 Chrome을 사용하도록 지정
+            executable_path=executable_path # 경로를 직접 지정
         )
         page = context.new_page()
 
         print("="*60)
-        print("사용자님의 실제 Chrome 브라우저와 연결되었습니다.")
+        print("사용자님의 실제 정식 Chrome 브라우저와 연결되었습니다.")
         print("트위터(X)에 이미 로그인되어 있는지 확인합니다...")
         print("="*60)
         
         try:
             page.goto("https://x.com/home")
-            # 타임라인이 보이는지 30초간 확인하여 로그인 상태를 체크합니다.
             page.wait_for_selector("article[data-testid='tweet']", timeout=30000)
             print("\n[성공] 이미 로그인된 상태입니다. 인증 파일을 저장합니다.")
-
         except Exception:
             print("\n[알림] 자동 로그인이 확인되지 않았습니다.")
             print("5분 안에 직접 로그인 또는 인증을 완료해주세요.")
             page.goto("https://x.com/login")
-            time.sleep(300) # 5분 대기
+            time.sleep(300)
 
-        # 현재 로그인 상태를 파일로 저장
         os.makedirs("auth", exist_ok=True)
         context.storage_state(path=AUTH_FILE)
         
