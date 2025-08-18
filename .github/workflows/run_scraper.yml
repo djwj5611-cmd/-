@@ -31,7 +31,7 @@ jobs:
         run: playwright install --with-deps
 
       - name: Run Trend Research V3
-        run: python main.py
+        run: python scraper.py # main.py 대신 scraper.py 실행
       
       - name: Upload error screenshots on failure
         if: failure()
