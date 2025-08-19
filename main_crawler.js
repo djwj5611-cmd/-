@@ -130,7 +130,7 @@ function generateReport(data) {
 }
 
 async function commitAndPush(filePath) {
-    if (!process.env.GITHUB_TOKEN) {
+    if (!process.env.GIT_TOKEN) {
         logToFile('GITHUB_TOKEN not found. Skipping git push.');
         return;
     }
