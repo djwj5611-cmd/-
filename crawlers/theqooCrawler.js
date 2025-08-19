@@ -1,12 +1,25 @@
-
 // /crawlers/theqooCrawler.js
-// TODO: The Qoo 크롤러 로직 구현 필요
 const createTheqooCrawler = (page) => async (keyword) => {
-    console.log(`[The Qoo] Crawling for '${keyword}' is not implemented yet.`);
-    // 1. The Qoo 검색 페이지로 이동
-    // 2. 검색 결과 목록 선택자 대기
-    // 3. 목록 순회하며 제목, 링크, 내용, 시간 등 추출
-    // 4. 표준화된 데이터 객체 배열로 반환
-    return []; // 임시로 빈 배열 반환
+    await page.goto(`https://theqoo.net/index.php?mid=hot&search_target=title_content&search_keyword=${encodeURIComponent(keyword)}`);
+    await page.waitForSelector('table.theqoo_hot_table td.title', { timeout: 15000 });
+
+    const posts = await page.locator('table.theqoo_hot_table tr').all();
+    const data = [];
+    // 헤더(첫 번째 tr)를 제외하고 순회
+    for (const post of posts.slice(1, 11)) {
+        const titleElement = await post.locator('td.title a').first();
+        const title = await titleElement.textContent().catch(() => '');
+        const url = `https://theqoo.net${await titleElement.getAttribute('href').catch(() => '')}`;
+        
+        if (title && url) {
+            data.push({
+                title: title.trim(),
+                url: url,
+                content: '', // 더쿠는 목록에서 본문 내용을 제공하지 않음
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+    return data;
 };
 module.exports = createTheqooCrawler;

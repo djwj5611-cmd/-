@@ -1,12 +1,24 @@
-
 // /crawlers/dcinsideCrawler.js
-// TODO: DCInside 크롤러 로직 구현 필요
 const createDcinsideCrawler = (page) => async (keyword) => {
-    console.log(`[DCInside] Crawling for '${keyword}' is not implemented yet.`);
-    // 1. DCInside 검색 페이지로 이동
-    // 2. 검색 결과 목록 선택자 대기
-    // 3. 목록 순회하며 제목, 링크, 내용, 시간 등 추출
-    // 4. 표준화된 데이터 객체 배열로 반환
-    return []; // 임시로 빈 배열 반환
+    await page.goto(`https://search.dcinside.com/post/p/1?q=${encodeURIComponent(keyword)}`);
+    await page.waitForSelector('.sch_result_list > li', { timeout: 15000 });
+
+    const posts = await page.locator('.sch_result_list > li').all();
+    const data = [];
+    for (const post of posts.slice(0, 10)) {
+        const title = await post.locator('.tit_txt').textContent().catch(() => '');
+        const url = await post.locator('.tit_txt').getAttribute('href').catch(() => '');
+        const content = await post.locator('.link_dsc_txt').textContent().catch(() => '');
+        
+        if (title && url) {
+            data.push({
+                title: title.trim(),
+                url: url,
+                content: content.trim(),
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+    return data;
 };
 module.exports = createDcinsideCrawler;
