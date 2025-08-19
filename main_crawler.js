@@ -29,8 +29,12 @@ async function main() {
 
         const launchOptions = {
             headless: true,
-            proxy: getProxyConfig()
         };
+
+        const proxyConfig = getProxyConfig();
+        if (proxyConfig) {
+            launchOptions.proxy = proxyConfig;
+        }
 
         // 1. 인증 상태 로드
         let contextOptions = {};
