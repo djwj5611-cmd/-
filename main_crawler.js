@@ -10,7 +10,7 @@ const crawlers = require('./crawlers');
 
 const GIT_REPO_PATH = __dirname;
 const REPORT_DIR = path.join(GIT_REPO_PATH, 'reports');
-const KEYWORDS_FILE = path.join(GIT_REPO_PATH, 'keywords.json');
+const KEYWORDS_FILE = path.join(GIT_REPO_PATH, 'data', 'keywords_for_js.json');
 const AUTH_STATE_FILE = path.join(GIT_REPO_PATH, 'auth_state.json');
 
 async function main() {
