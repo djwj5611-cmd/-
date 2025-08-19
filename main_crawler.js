@@ -148,7 +148,7 @@ async function commitAndPush(filePath) {
             await git.commit(commitMessage);
             logToFile('Committing changes...');
             
-            const remote = `https://${process.env.GITHUB_TOKEN}@github.com/${process.env.GITHUB_REPO}.git`;
+            const remote = `https://${process.env.GITHUB_TOKEN}@github.com/${process.env.GIT_REPO}.git`;
             await git.push(remote, 'main'); // 'main' 브랜치에 푸시. 필요시 브랜치명 변경
             logToFile('Successfully pushed report to GitHub.');
         } else {

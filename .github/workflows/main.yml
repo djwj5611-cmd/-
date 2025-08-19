@@ -13,6 +13,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # 사용자가 설정한 GIT_TOKEN Secret을 사용하도록 수정
+          token: ${{ secrets.GIT_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -24,7 +27,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 한 번의 스텝으로 모든 의존성 설치
       - name: Install dependencies
         run: |
           npm install
@@ -39,9 +41,10 @@ jobs:
 
       - name: Run Main Crawler
         env:
+          # workflow에서 사용할 환경변수 이름을 사용자가 설정한 Secret 이름으로 수정
           AUTH_STATE: ${{ secrets.AUTH_STATE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
+          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+          GIT_REPO: ${{ secrets.GIT_REPO }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PROXY_LIST: ${{ secrets.PROXY_LIST }}
         run: node main_crawler.js
