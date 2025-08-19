@@ -1,11 +1,18 @@
 // /auth/save_auth_state.js
 const { chromium } = require('playwright');
+const { addExtra } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')(); // Playwright-extra의 stealth 플러그인
 const fs = require('fs');
 require('dotenv').config(); // .env 파일 로드
 
+// playwright-extra에 stealth 플러그인 적용
+const chromium_extra = addExtra(chromium);
+chromium_extra.use(stealth);
+
 (async () => {
-    console.log('Launching browser for manual login...');
-    const browser = await chromium.launch({ headless: false }); // 브라우저 창을 띄웁니다.
+    console.log('Launching browser for manual login (stealth mode)...');
+    // chromium_extra를 사용하여 브라우저를 실행합니다.
+    const browser = await chromium_extra.launch({ headless: false }); // 브라우저 창을 띄웁니다.
     const context = await browser.newContext();
     const page = await context.newPage();
 
