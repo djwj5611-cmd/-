@@ -1,0 +1,58 @@
+'''
+# .github/workflows/main.yml
+name: Advanced Hybrid Trend Crawler V5
+on:
+  schedule:
+    - cron: '0 22 * * *' # 매일 UTC 22시 (한국 시간 오전 7시)에 실행
+  workflow_dispatch:      # 수동 실행도 가능하도록 설정
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # GITHUB_TOKEN을 이용해 checkout해야 나중에 push 가능
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          npm install p-limit@4.0.0
+          npm install
+          pip install -r requirements.txt
+          
+      - name: Run Python for keyword selection
+        id: keyword_step
+        run: python keyword_manager.py
+        
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+        
+      - name: Run Main Crawler
+        env:
+          AUTH_STATE: ${{ secrets.AUTH_STATE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PROXY_LIST: ${{ secrets.PROXY_LIST }}
+        run: node main_crawler.js
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawler-logs
+          path: crawler.log
+          retention-days: 7
+''
