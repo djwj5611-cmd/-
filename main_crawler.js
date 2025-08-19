@@ -1,4 +1,3 @@
-'''
 // main_crawler.js
 const { chromium } = require('playwright');
 const fs = require('fs/promises');
@@ -107,9 +106,7 @@ async function main() {
 }
 
 function generateReport(data) {
-    let report = `# Trend Report - ${new Date().toLocaleString('ko-KR')}
-
-`;
+    let report = `# Trend Report - ${new Date().toLocaleString('ko-KR')}\n\n`;
     const groupedBySource = data.reduce((acc, item) => {
         acc[item.source] = acc[item.source] || [];
         acc[item.source].push(item);
@@ -117,19 +114,12 @@ function generateReport(data) {
     }, {});
 
     for (const source in groupedBySource) {
-        report += `## ${source}
-
-`;
+        report += `## ${source}\n\n`;
         groupedBySource[source].forEach(item => {
-            report += `### [${item.title}](${item.url})
-`;
-            report += `*   **Keyword**: ${item.keyword}
-`;
-            report += `*   **Timestamp**: ${item.timestamp}
-`;
-            report += `*   **Content**: ${item.content.slice(0, 200)}...
-
-`;
+            report += `### [${item.title}](${item.url})\n`;
+            report += `*   **Keyword**: ${item.keyword}\n`;
+            report += `*   **Timestamp**: ${item.timestamp}\n`;
+            report += `*   **Content**: ${item.content.slice(0, 200)}...\n\n`;
         });
     }
     return report;
@@ -167,4 +157,3 @@ async function commitAndPush(filePath) {
 }
 
 main();
-''
